@@ -1,0 +1,111 @@
+version: '2'
+services:
+  zk01:
+    image: zookeeper:3.4.14
+    restart: always
+    container_name: zk01
+    ports:
+      - "2181:2181"
+
+  mysql:
+    image: mysql:5.7.29
+    restart: always
+    container_name: mysql
+    ports:
+    - "3306:3306"
+    volumes:
+    - /d/docker/mysql/data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+
+  es76_01:
+    image: elasticsearch:7.6.2
+    restart: always
+    container_name: es76_01
+    environment:
+      - node.name=es76_01
+      - cluster.name=risk-manager
+      - discovery.seed_hosts=es76_02
+      - cluster.initial_master_nodes=es76_01,es76_02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - elastc
+  
+  es76_02:
+    image: elasticsearch:7.6.2
+    restart: always
+    container_name: es76_02
+    environment:
+      - node.name=es76_02
+      - cluster.name=risk-manager
+      - discovery.seed_hosts=es76_01
+      - cluster.initial_master_nodes=es76_01,es76_02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data02:/usr/share/elasticsearch/data
+    ports:
+      - 9201:9200
+    networks:
+      - elastc
+
+  # nginx:
+  #   image: nginx:latest
+  #   restart: always
+  #   container_name: nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - /d/docker/nginx/conf.d:/etc/nginx/conf.d
+  #     - /d/docker/nginx/log:/var/log/nginx
+  #     - /d/docker/nginx/www:/var/www
+    
+  redis:
+    image: redis:5.0-alpine
+    restart: always
+    container_name: redis
+    ports: 
+      - "6379:6379"
+    volumes: 
+      - /d/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - /d/docker/redis/data:/data
+    command:
+      redis-server /usr/local/etc/redis/redis.conf
+  
+  nacos:
+    image: nacos/nacos-server:1.3.2
+    container_name: nacos-standalone
+    env_file:
+      - ./env/nacos-standlone-mysql.env
+    volumes:
+      - /d/docker/nacos/standalone-logs:/home/nacos/logs
+      - /d/docker/nacos/init.d:/home/nacos/init.d
+    ports:
+      - "8848:8848"
+      - "9555:9555"
+    restart: always
+
+
+volumes:
+  data01:
+    driver: local
+  data02:
+    driver: local
+
+networks:
+  elastc:
+    driver: bridge
